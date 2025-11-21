@@ -1,12 +1,20 @@
 # Calculadora de Ecuaciones Diferenciales Ordinarias (EDO)
 
-**Proyecto de Ecuaciones Diferenciales - Primer Orden**
+**Calculadora web interactiva diseñada para resolver y explicar paso a paso Ecuaciones Diferenciales Ordinarias de Primer Orden.**
 
 ---
 
 ## Descripción del Proyecto
 
-Calculadora web desarrollada con **Vue.js** (frontend) y **Python/FastAPI** (backend) que resuelve ecuaciones diferenciales ordinarias de primer orden mediante métodos analíticos.
+Calculadora web desarrollada con **Vue.js** (frontend) y **Python/FastAPI** (backend), enfocándose no solo en el resultado, sino en la metodología académica de resolución.
+
+### Características Principales
+
+- Entrada Natural: Escribe la ecuación tal como la ves en tu cuaderno (ej: y' + 3y = e^x o (x+y)dx + dy = 0). No requiere sintaxis compleja.
+- Detección Automática: El sistema identifica automáticamente las variables dependientes e independientes y el tipo de notación (y' o dy/dx).
+- Paso a Paso Académico: Los algoritmos no solo dan la respuesta, sino que desglosan el procedimiento.
+- Vista Previa en Vivo: Renderizado LaTeX en tiempo real para verificar que la ecuación se interpreta correctamente antes de calcular.
+-Barra de Herramientas Matemática: Botones rápidos para insertar símbolos complejos (√, sin, e (Euler)).
 
 ### Tipos de EDO Soportadas
 
@@ -70,8 +78,15 @@ python -m http.server 3000
 
 **Método**:
 
+# lógica algebraica para identificar y separar los componentes de 'x' y de 'y'.
+Ecuacion original: `Toma la expresión despejada (rhs) y crea una cadena de texto en formato LaTeX para mostrársela al usuario.`
+Formato Simbolico: `Crea un objeto matemático formal de ecuación (Eq) dentro de SymPy.`
+Separación Heurística: `Parte la operación en dos, una que solo contenga 'x' y la otra solo contenga lo de 'y'`
+
 1. Separar variables: `dy/h(y) = g(x)dx`
 2. Integrar ambos lados: `∫dy/h(y) = ∫g(x)dx + C`
+3. Resultado Implícito: `Mostrar el resultado de las integrales.`
+4. Solución General: `Despejar y si es posible.`
 
 **Ejemplo**:
 
@@ -84,63 +99,72 @@ python -m http.server 3000
 
 **Forma general**: `M(x,y)dx + N(x,y)dy = 0`
 
-**Condición de exactitud**: `∂M/∂y = ∂N/∂x`
-
 **Método**:
 
-1. Verificar condición de exactitud
-2. Encontrar función potencial `F(x,y)` tal que:
+1. Verificar exactitud: Comprobar si `∂M/∂y = ∂N/∂x`
+2. Integrar M: `F(x,y)` tal que:
    - `∂F/∂x = M(x,y)`
    - `∂F/∂y = N(x,y)`
-3. Solución implícita: `F(x,y) = C`
+3. Derivar y Comparar: Derivar `F` respecto a `y` e igualar a `N` para encontrar `h'(y)`.
+4. Solución implícita: `F(x,y) = C`
 
 **Ejemplo**:
 
-- Ecuación: `(2xy)dx + (x²)dy = 0`
-- M = 2xy, N = x²
-- ∂M/∂y = 2x, ∂N/∂x = 2x ✓ (es exacta)
-- F(x,y) = x²y
+- Ecuación: `(2xy) + (x²)y' = 0`
+- `M = 2xy, N = x²`
+- `∂M/∂y = 2x, ∂N/∂x = 2x ✓ (es exacta)`
+- `F(x,y) = x²y + h(y)`
+- `F/∂y = x²+h'(y) = x²`
+   - `h'(y) = 0`
+   - `h(y) = ∫(0)dy = 0`
 - Solución: `x²y = C`
 
 ### 3. Ecuaciones Lineales
 
-**Forma general**: `dy/dx + P(x)y = Q(x)`
+**Forma general**: `y' + P(x)y = Q(x)`
 
 **Método del Factor Integrante**:
 
-1. Factor integrante: `μ(x) = e^(∫P(x)dx)`
-2. Multiplicar toda la ecuación por μ(x)
-3. Reconocer: `d/dx[μ(x)y] = μ(x)Q(x)`
+1. Identificar P y Q
+2. Encontrar el factor integrador: `μ(x) = e^(∫P(x)dx)`
+3. Resolver usando la formula: `d/dx[μ(x)y] = μ(x)Q(x)`
 4. Integrar: `μ(x)y = ∫μ(x)Q(x)dx + C`
 5. Despejar: `y = [∫μ(x)Q(x)dx + C]/μ(x)`
 
 **Ejemplo**:
 
-- Ecuación: `dy/dx + (2x)y = x²`
-- P(x) = 2x, Q(x) = x²
-- μ(x) = e^(∫2x dx) = e^(x²)
-- Solución: `y = [∫x²e^(x²)dx + C]/e^(x²)`
+- Ecuación: `y' + (1/x)y = x²`
+- `P(x) = 1/x, Q(x) = x²`
+- `μ = e^(∫(1/x) dx) = x`
+- `μy = ∫μQdx`
+- `∫(x)(x²)dx = x^4/4 + C`
+- Solución: `y = (C + (c^4/4))/x`
 
 ### 4. Ecuaciones de Bernoulli
 
-**Forma general**: `dy/dx + P(x)y = Q(x)y^n`
+**Forma general**: `y' + P(x)y = Q(x)y^n`
 
 **Método de Sustitución**:
 
-1. Sustitución: `v = y^(1-n)`
-2. Derivar: `dv/dx = (1-n)y^(-n)dy/dx`
-3. Dividir ecuación original entre `y^n`
-4. Sustituir para obtener ecuación lineal en v:
-   `dv/dx + (1-n)P(x)v = (1-n)Q(x)`
-5. Resolver como ecuación lineal
-6. Regresar a y: `y = v^(1/(1-n))`
+1. Ecuacion diferencial general
+2. Hacer u = y^(1-n)
+3. Despejar y
+4. Dividir ecuación original entre `y' y u`
+5. Sustituir ecuacion original
+6. Ordernar (Ecuacion Lineal en u)
+7. Resolver Lineal (Identificar P y Q)
 
 **Ejemplo**:
 
 - Ecuación: `dy/dx + (1/x)y = xy²` (n=2)
-- Sustitución: `v = y^(-1)`
-- Ecuación lineal: `dv/dx - (1/x)v = -x`
-- Resolver y regresar a y
+- Sustitución: `u = y^(-1)`
+- Despejar `y = u^(1/-1)`
+- Derivar y' y u: `dy/dx = - (d/dx u(x))/(u^2(x)`
+- Sustituir ecuacion original: `-(d/dx u(x))/(u^2(x)) + (1/x)(1/u(x)) = (x)(1/u(x))^2`
+- Ordenar `u' + (-1/x)u = -x`
+- Resolver Lineal `P(u) = 1/x, Q(u) = -x`
+   - Solucion para u: `u = Cx -x²`
+   - Solucion Final: `1/y = Cx - x²`
 
 ---
 

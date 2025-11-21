@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="es">
 
 <head>
@@ -231,7 +230,6 @@
             border-left-color: #c62828;
         }
 
-        /* Estilos Nuevos (Preview & Toolbar) */
         .preview-box {
             background: #fff;
             border: 1px dashed #667eea;
@@ -338,6 +336,7 @@
 
                     <textarea ref="inputEcuacion" v-model="ecuacion" :placeholder="placeholderDinamico"
                         @input="renderMath"></textarea>
+
                     <p class="help-text">{{ tipoInfo.ayuda }} El sistema detectará las variables automáticamente.</p>
                 </div>
 
@@ -377,7 +376,7 @@
             <div v-if="error && !cargando" class="result-section">
                 <div class="solution error">
                     <div class="solution-label">❌ Error:</div>
-                    <div>{{ error }}</div>
+                    <div class="solution-content">{{ error }}</div>
                 </div>
             </div>
         </div>
@@ -395,7 +394,7 @@
                     resultado: null,
                     error: null,
                     apiUrl: 'http://127.0.0.1:8000',
-                    varDep: 'y', varIndep: 'x', // Dummy para visualizar ejemplos
+                    varDep: 'y', varIndep: 'x',
 
                     tipos: [
                         { id: 'separable', nombre: 'Separables' },
@@ -448,16 +447,8 @@
                 livePreviewLatex() {
                     if (!this.ecuacion) return '\\( ... \\)';
                     let s = this.ecuacion;
-
-                    // 1. Fracciones simples (2/3 -> \frac{2}{3})
-                    // Regex: numero/letra seguido de / seguido de numero/letra
-                    s = s.replace(/(\w+)\/(\w+)/g, '\\frac{$1}{$2}');
-
-                    // 2. Potencias complejas (^22, ^-1)
-                    // Regex: ^ seguido de opcionalmente signo y luego dígitos/letras
-                    s = s.replace(/\^([+-]?\d+|[a-zA-Z])/g, '^{$1}');
-
-                    // 3. Euler y otros
+                    s = s.replace(/([a-zA-Z0-9]+)\/([a-zA-Z0-9]+)/g, '\\frac{$1}{$2}');
+                    s = s.replace(/\^([+-]?[\d\w]+)/g, '^{$1}');
                     s = s.replace(/dy\/dx/g, '\\frac{dy}{dx}');
                     s = s.replace(/sqrt\((.*?)\)/g, '\\sqrt{$1}');
                     s = s.replace(/\*/g, ' \\cdot ');
@@ -487,7 +478,7 @@
                 renderMath() {
                     this.$nextTick(() => {
                         if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
-                            window.MathJax.typesetPromise().catch(e => console.warn(e));
+                            window.MathJax.typesetPromise().catch(e => { });
                         }
                     });
                 },
@@ -514,6 +505,7 @@
                     }
                 }
             },
+
             watch: {
                 tipoActual() {
                     this.ecuacion = '';
@@ -525,6 +517,7 @@
                     this.renderMath();
                 }
             },
+
             mounted() {
                 this.renderMath();
             }

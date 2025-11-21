@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from typing import List, Any
 from sympy import (
     symbols, Function, Eq, dsolve, diff, integrate, simplify, exp, latex, Symbol,
-    Integral, solve, E, Derivative, Wild, Pow, Rational
+    Integral, solve, E, Derivative, Wild, Pow
 )
 from sympy.parsing.sympy_parser import (
     parse_expr, standard_transformations, implicit_multiplication_application, convert_xor
@@ -249,43 +249,47 @@ def solve_bernoulli(implicit_expr, dydx_sym, dep, indep):
             b, e = ty.as_base_exp()
             if b == y: n_val, Q_val = e, tx
     
-    steps.append(format_step("1. Ecuación diferencial general", f"{dep}' + ({latex(P_val)}){dep} = ({latex(Q_val)}){dep}^{{{n_val}}}"))
+    # Paso 1
+    steps.append(format_step("Paso 1. Ecuación diferencial general", 
+                             f"{dep}' + ({latex(P_val)}){dep} = ({latex(Q_val)}){dep}^{{{n_val}}}"))
 
+    # Paso 2
     u_exp = simplify(1 - n_val)
-    steps.append(format_step(f"2. Hacer u = y^(1-n) (n={n_val})", f"u = {dep}^{{{latex(u_exp)}}}"))
+    steps.append(format_step(f"Paso 2. Hacer u = y^(1-n) (n={n_val})", f"u = {dep}^{{{latex(u_exp)}}}"))
 
+    # Paso 3
     y_in_u = Symbol('u') ** simplify(1/u_exp)
-    steps.append(format_step(f"3. Despejar {dep}", f"{dep} = u^{{1/{latex(u_exp)}}}")) # Simplificado visualmente
+    steps.append(format_step(f"Paso 3. Despejar {dep}", f"{dep} = {latex(y_in_u)}"))
 
+    # Paso 4
     u_sym = Function('u')(x)
     y_sub = u_sym ** simplify(1/u_exp)
     dy_sub = diff(y_sub, x)
-    steps.append(format_step(f"4. Derivar '{dep}' y u", f"\\frac{{d{dep}}}{{d{indep}}} = {latex(dy_sub)}"))
+    steps.append(format_step(f"Paso 4. Derivar '{dep}' y u", f"\\frac{{d{dep}}}{{d{indep}}} = {latex(dy_sub)}"))
 
-    steps.append(format_step("5. Sustituir en la ecuación original", f"({latex(dy_sub)}) + ({latex(P_val)})({latex(y_sub)}) = ({latex(Q_val)})({latex(y_sub)})^{{{n_val}}}"))
+    # Paso 5
+    steps.append(format_step("Paso 5. Sustituir en la ecuación original", 
+                             f"({latex(dy_sub)}) + ({latex(P_val)})({latex(y_sub)}) = ({latex(Q_val)})({latex(y_sub)})^{{{n_val}}}"))
 
+    # Paso 6
     P_new = simplify((1 - n_val) * P_val)
     Q_new = simplify((1 - n_val) * Q_val)
-    steps.append(format_step("6. Ordenar (Ecuación Lineal en u)", f"u' + ({latex(P_new)})u = {latex(Q_new)}"))
+    steps.append(format_step("Paso 6. Ordenar (Ecuación Lineal en u)", f"u' + ({latex(P_new)})u = {latex(Q_new)}"))
 
-    steps.append(format_step("7. Resolver Lineal (Identificar P y Q)", f"P_u = {latex(P_new)}, \\quad Q_u = {latex(Q_new)}"))
+    # Paso 7
+    steps.append(format_step("Paso 7. Resolver Lineal (Identificar P y Q)", f"P_u = {latex(P_new)}, \\quad Q_u = {latex(Q_new)}"))
     
     mu_u = simplify(exp(integrate(P_new, x)))
     res_u = integrate(simplify(mu_u * Q_new), x)
-    
-    # Intentamos expandir para mostrar la forma polinómica bonita (ej. x^2/3 - x/9)
-    u_sol_val = simplify((res_u + C1) / mu_u).expand() 
+    u_sol_val = simplify((res_u + C1) / mu_u).expand()
     
     steps.append(format_step(f"Solución para u (con \\( \\mu={latex(mu_u)} \\))", f"u = {latex(u_sol_val)}"))
 
-    # Volver a y
-    # Si u = y^2, entonces y = sqrt(u), o y^2 = u. Mostramos la forma implícita que es más limpia.
     power_y = simplify(u_exp) 
     sol_implicit = Eq(y**power_y, u_sol_val)
     
     steps.append(format_step(f"Volver a variable original (Solución Final)", latex(sol_implicit)))
 
-    # Devolvemos la implícita como solución principal si es más bonita
     return sol_implicit, latex(sol_implicit), steps
 
 @app.post("/solve", response_model=EDOResponse)
