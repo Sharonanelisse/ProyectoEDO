@@ -40,8 +40,10 @@ python main.py
 
 # Si da error el main.py es porque no esta dentro del venv ejecutar
 source venv/bin/activate
+# Instalar dependencias
+pip install -r requirements.txt
 
-#y luego
+#Luego correr uvicorn para cargar python
 uvicorn main:app --reload --port 8000
 ```
 
