@@ -36,6 +36,13 @@ pip install -r requirements.txt
 
 # Ejecutar el servidor
 python main.py
+
+
+# Si da error el main.py es porque no esta dentro del venv ejecutar
+source venv/bin/activate
+
+#y luego
+uvicorn main:app --reload --port 8000
 ```
 
 El backend estará disponible en: `http://localhost:8000`
