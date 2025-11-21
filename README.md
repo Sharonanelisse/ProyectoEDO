@@ -232,8 +232,11 @@ proyecto-edo/
 ## Licencia y Créditos
 
 **Autor**: Alex, Sharon, Josimar
+
 **Curso**: Ecuaciones Diferenciales  
+
 **Institución**: USPG
+
 **Fecha**: Noviembre 2025
 
 **Tecnologías Utilizadas**:
