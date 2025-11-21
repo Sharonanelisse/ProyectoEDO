@@ -17,20 +17,18 @@ Mejorado con:
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, Tuple, List, Any
+from typing import List, Any
 from sympy import (
     symbols, Function, Eq, dsolve, diff, integrate, simplify, exp, latex, Symbol,
-    Integral, Wild
+    Integral, solve, E, Derivative, Wild, Pow
 )
 from sympy.parsing.sympy_parser import (
-    parse_expr, standard_transformations, implicit_multiplication_application
+    parse_expr, standard_transformations, implicit_multiplication_application, convert_xor
 )
 import traceback
+import re
 
-# --- Configuración Global ---
-
-# Parser transforms (permite multiplicación implícita)
-transformations = (standard_transformations + (implicit_multiplication_application,))
+transformations = (standard_transformations + (implicit_multiplication_application, convert_xor))
 
 app = FastAPI(title="EDO Solver API")
 
@@ -42,392 +40,267 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Modelos Pydantic ---
-
-class EDORequest(BaseModel):
-    equation: str
-    tipo: str
-    dep: Optional[str] = None
-    indep: Optional[str] = None
-    var_dep: Optional[str] = None
-    var_indep: Optional[str] = None
-
-    initial_x: Optional[float] = None
-    initial_y: Optional[float] = None
-    initial_indep: Optional[float] = None
-    initial_dep: Optional[float] = None
-
 class EDOResponse(BaseModel):
     success: bool
     solution: str = ""
     solution_latex: str = ""
-    particular_solution: str = ""
     steps: List[str] = []
     error: str = ""
+    detected_vars: str = ""
 
-# --- Solvers de EDO ---
+def format_step(title: str, math: str) -> str:
+    return f"<strong>{title}</strong><br>\\( {math} \\)"
 
-def format_latex_step(step_text: str, formula: str) -> str:
-    """Envuelve una fórmula de LaTeX para MathJax"""
-    return f"{step_text} \\( {formula} \\)"
-
-#Ecuaciones separables
-
-def solve_separable(equation_str: str, dep_name: str, indep_name: str) -> Tuple[Any, str, List[str]]:
-    """Resuelve EDO Separables: d(dep)/d(indep) = RHS"""
-    steps = []
-    try:
-        # 1. Setup
-        x = symbols(indep_name)
-        y_func = Function(dep_name)(x)
-        indep_sym = symbols(indep_name)
-        dep_sym = symbols(dep_name)
-        C1 = Symbol("C1")
-        local = {
-            indep_name: x, dep_name: y_func,
-            indep_sym: indep_sym, dep_sym: dep_sym
-        }
-
-        # 2. Parseo
-        rhs_input = equation_str.strip().split("=", 1)[-1].strip()
-        rhs = parse_expr(rhs_input, local_dict=local, transformations=transformations)
-        ode = Eq(diff(y_func, x), rhs)
-        
-        steps.append(f"1. Ecuación original: \\( \\frac{{d{dep_name}}}{{d{indep_name}}} = {latex(rhs)} \\)")
-        steps.append(f"2. Ecuación en formato simbólico: \\( {latex(ode)} \\)")
-        steps.append("3. Método: Separación de variables")
-
-        # 3. Heurística de Separación
-        rhs_for_factor = parse_expr(rhs_input, local_dict={indep_name: indep_sym, dep_name: dep_sym}, transformations=transformations)
-        
-        # Usamos .match() para una separación más robusta g(x) * h(y)
-        g = Wild('g', exclude=[dep_sym])
-        h = Wild('h', exclude=[indep_sym])
-        g_part, h_part = 1, 1
-        
-        match = rhs_for_factor.match(g * h)
-        if match:
-            g_part = match.get(g, 1)
-            h_part = match.get(h, 1)
-        else: # Si no matchea, intentamos factorizar y separar
-            factors = rhs_for_factor.as_ordered_factors()
-            for fac in factors:
-                if fac.has(indep_sym) and not fac.has(dep_sym):
-                    g_part *= fac
-                elif fac.has(dep_sym) and not fac.has(indep_sym):
-                    h_part *= fac
-                else:
-                    # Si es mixto (e.g., x+y) o constante, se complica.
-                    # Asumimos que el usuario da algo separable.
-                    if not fac.free_symbols: g_part *= fac # Constante
-                    else: h_part *= fac # Parte mixta o no factorizable
-        
-        steps.append(f"4. Separación (heurística): RHS ≈ g({indep_name}) · h({dep_name})")
-        steps.append(f"   \\( g({indep_name}) \\approx {latex(simplify(g_part))} \\)")
-        steps.append(f"   \\( h({dep_name}) \\approx {latex(simplify(h_part))} \\)")
-
-        # 4. Pasos de Integración
-        h_inv_part = simplify(1 / h_part)
-        g_simp = simplify(g_part)
-
-        steps.append(f"5. Separar variables: \\( {latex(h_inv_part)} \, d{dep_name} = {latex(g_simp)} \, d{indep_name} \\)")
-
-        integral_y = Integral(h_inv_part, dep_sym)
-        integral_x = Integral(g_simp, indep_sym)
-        steps.append(format_latex_step("6. Plantear integrales:", f"{latex(integral_y)} = {latex(integral_x)} + {latex(C1)}"))
-
-        result_y = integral_y.doit()
-        result_x = integral_x.doit()
-        steps.append(format_latex_step("7. Resolver integrales:", f"{latex(simplify(result_y))} = {latex(simplify(result_x))} + {latex(C1)}"))
-
-        # 5. Solución Final
-        sol = dsolve(ode, y_func)
-        sol_latex = latex(sol)
-        steps.append(format_latex_step("8. Solución general (despejada):", sol_latex))
-
-        return sol, sol_latex, steps
-
-    except Exception as e:
-        print(f"Error en separable: {e}\n{traceback.format_exc()}")
-        raise Exception(f"Error resolviendo separable: {str(e)}")
-
-# Ecuaciones exactas
-def solve_exact(M_str: str, N_str: str, dep_name: str, indep_name: str) -> Tuple[Any, str, List[str]]:
-    """Resuelve EDO exactas: M dx + N dy = 0"""
-    steps = []
-    try:
-        # 1. Setup
-        x = symbols(indep_name)
-        y = symbols(dep_name)
-        C1 = Symbol("C1")
-        local = {indep_name: x, dep_name: y}
-
-        # 2. Parseo
-        M = parse_expr(M_str, local_dict=local, transformations=transformations)
-        N = parse_expr(N_str, local_dict=local, transformations=transformations)
-
-        steps.append(f"1. Ecuación: \\( M({indep_name},{dep_name}) d{indep_name} + N({indep_name},{dep_name}) d{dep_name} = 0 \\)")
-        steps.append(f"   \\( M = {latex(M)} \\)")
-        steps.append(f"   \\( N = {latex(N)} \\)")
-
-        # 3. Verificar exactitud
-        dM_dy = diff(M, y)
-        dN_dx = diff(N, x)
-
-        steps.append(f"2. Verificar exactitud: \\( \\frac{{\\partial M}}{{\\partial {dep_name}}} = {latex(dM_dy)} \\)")
-        steps.append(f"   \\( \\frac{{\\partial N}}{{\\partial {indep_name}}} = {latex(dN_dx)} \\)")
-
-        if simplify(dM_dy - dN_dx) != 0:
-            steps.append("   ❌ \\( \\frac{{\\partial M}}{{\\partial {dep_name}}} \\neq \\frac{{\\partial N}}{{\\partial {indep_name}}} \\). La ecuación no es exacta.")
-            raise Exception("La ecuación no es exacta")
-
-        steps.append("   ✓ La ecuación es exacta.")
-
-        # 4. Integrar M
-        int_M_dx = Integral(M, x)
-        F_partial = int_M_dx.doit()
-        steps.append(f"3. Integrar M respecto a {indep_name}: \\( F = {latex(int_M_dx)} = {latex(F_partial)} + g({dep_name}) \\)")
-
-        # 5. Encontrar g'(y)
-        dF_dy = diff(F_partial, y)
-        g_prime = simplify(N - dF_dy)
-        steps.append(f"4. Encontrar g'({dep_name}): \\( g'({dep_name}) = N - \\frac{{\\partial F}}{{\\partial {dep_name}}} = {latex(N)} - ({latex(dF_dy)}) = {latex(g_prime)} \\)")
-
-        # 6. Integrar g'(y)
-        int_g_prime = Integral(g_prime, y)
-        g = int_g_prime.doit()
-        steps.append(f"5. Integrar g': \\( g({dep_name}) = {latex(int_g_prime)} = {latex(g)} \\)")
-
-        # 7. Solución
-        F_complete = F_partial + g
-        sol = Eq(F_complete, C1)
-        sol_latex = latex(sol)
-        steps.append(format_latex_step("6. Solución implícita F(x,y) = C:", sol_latex))
-
-        return sol, sol_latex, steps
-
-    except Exception as e:
-        print(f"Error en exacta: {e}\n{traceback.format_exc()}")
-        raise Exception(f"Error resolviendo exacta: {str(e)}")
-
-# Ecuaciones lineales y Bernoulli (comparten pasos)
-def _solve_linear_core(P: Any, Q: Any, x: Symbol, y_func: Function, C1: Symbol, indep_name: str, dep_name: str, steps_list: List[str]) -> Tuple[Any, str, List[str]]:
-    """
-    Función interna (DRY) que resuelve la EDO lineal y = (∫μQ + C) / μ.
-    Es usada por solve_linear y solve_bernoulli.
-    """
+# --- Preprocesamiento ---
+def preprocess_equation(eq_str: str):
+    eq_clean = eq_str.strip()
+    eq_clean = re.sub(r"e\^([+-]?\d+)([a-zA-Z])", r"e^(\1*\2)", eq_clean)
+    eq_clean = re.sub(r"e\^([a-zA-Z])", r"e^(\1)", eq_clean)
+    eq_clean = re.sub(r"(\d)([a-zA-Z\(])", r"\1*\2", eq_clean)
+    eq_clean = re.sub(r"(\))([a-zA-Z0-9\(])", r"\1*\2", eq_clean)
     
-    # 1. Factor integrante
-    int_P = Integral(P, x)
-    P_integral = int_P.doit()
-    steps_list.append(f"   a. Calcular integral de P: \\( \\int P d{indep_name} = {latex(int_P)} = {latex(P_integral)} \\)")
+    token_dydx = "DYDX"
+    dep_str, indep_str = "y", "x"
 
-    mu = simplify(exp(P_integral))
-    steps_list.append(f"   b. Factor integrante: \\( \\mu({indep_name}) = e^{{\\int P d{indep_name}}} = {latex(mu)} \\)")
+    has_dx = bool(re.search(r"\bdx\b", eq_clean))
+    has_dy = bool(re.search(r"\bdy\b", eq_clean))
+    eq_sym_str = eq_clean
 
-    # 2. Integrar μQ
-    right_side = simplify(mu * Q)
-    int_mu_Q = Integral(right_side, x)
-    integral_result = int_mu_Q.doit()
-    steps_list.append(f"   c. Integrar μQ: \\( \\int \\mu Q d{indep_name} = {latex(int_mu_Q)} = {latex(integral_result)} \\)")
+    if has_dx and has_dy:
+        eq_sym_str = re.sub(r"\bdx\b", "1", eq_sym_str)
+        eq_sym_str = re.sub(r"\bdy\b", token_dydx, eq_sym_str)
+    else:
+        match_frac = re.search(r"d([a-zA-Z]+)\s*/\s*d([a-zA-Z]+)", eq_clean)
+        match_prime = re.search(r"([a-zA-Z]+)'", eq_clean)
+        if match_frac:
+            dep_str, indep_str = match_frac.group(1), match_frac.group(2)
+            eq_sym_str = re.sub(r"d" + dep_str + r"\s*/\s*d" + indep_str, token_dydx, eq_sym_str)
+        elif match_prime:
+            dep_str = match_prime.group(1)
+            temp = re.sub(r"(sin|cos|tan|exp|log|ln|sqrt|e|dx|dy)", "", eq_clean)
+            vars_found = set(re.findall(r"[a-zA-Z]", temp))
+            if dep_str in vars_found: vars_found.remove(dep_str)
+            if 'x' in vars_found: indep_str = 'x'
+            elif 't' in vars_found: indep_str = 't'
+            elif vars_found: indep_str = list(vars_found)[0]
+            eq_sym_str = eq_sym_str.replace(f"{dep_str}'", token_dydx)
+        else:
+            if not (has_dx or has_dy): raise Exception("No se detectó derivada (y', dy/dx) ni diferenciales.")
 
-    # 3. Solución
-    solution_expr = simplify((integral_result + C1) / mu)
-    sol = Eq(y_func, solution_expr)
+    if "=" in eq_sym_str:
+        lhs, rhs = eq_sym_str.split("=", 1)
+        eq_sym_str = f"({lhs}) - ({rhs})"
+    
+    x = symbols(indep_str)
+    y = symbols(dep_str)
+    dydx_sym = symbols(token_dydx)
+    local_dict = {indep_str: x, dep_str: y, token_dydx: dydx_sym, 'e': E}
+    
+    try:
+        implicit_expr = parse_expr(eq_sym_str, local_dict=local_dict, transformations=transformations)
+    except Exception as e:
+        raise Exception(f"Sintaxis inválida: {e}")
+    
+    solved = solve(implicit_expr, dydx_sym)
+    readable_eq = ""
+    if solved:
+        readable_eq = latex(Eq(Derivative(Function(dep_str)(x), x), solved[0]))
+    else:
+        readable_eq = latex(Eq(implicit_expr, 0))
+
+    return implicit_expr, dydx_sym, dep_str, indep_str, readable_eq
+
+# --- SOLVERS (Separable, Exacta, Lineal NO TOCADOS) ---
+
+def solve_separable(implicit_expr, dydx_sym, dep, indep):
+    x, y = symbols(indep), symbols(dep)
+    y_func = Function(dep)(x)
+    C1 = Symbol("C")
+    steps = []
+    solved = solve(implicit_expr, dydx_sym)
+    if not solved: raise Exception("No se pudo despejar la derivada.")
+    rhs = solved[0]
+    ode = Eq(diff(y_func, x), rhs)
+    steps.append(f"1. Ecuación original: \\( \\frac{{d{dep}}}{{d{indep}}} = {latex(rhs)} \\)")
+    steps.append(f"2. Ecuación en formato simbólico: \\( {latex(ode)} \\)")
+    steps.append("3. Método: Separación de variables")
+    g = Wild('g', exclude=[dep])
+    h = Wild('h', exclude=[indep])
+    g_part, h_part = 1, 1
+    match = rhs.match(g * h)
+    if match:
+        g_part, h_part = match.get(g, 1), match.get(h, 1)
+    else:
+        factors = rhs.as_ordered_factors()
+        for fac in factors:
+            if fac.has(indep) and not fac.has(dep): g_part *= fac
+            elif fac.has(dep) and not fac.has(indep): h_part *= fac
+            else:
+                if not fac.free_symbols: g_part *= fac 
+                else: h_part *= fac
+    steps.append(f"4. Separación (heurística): RHS ≈ g({indep}) · h({dep})")
+    steps.append(f"   \\( g({indep}) \\approx {latex(simplify(g_part))} \\)")
+    steps.append(f"   \\( h({dep}) \\approx {latex(simplify(h_part))} \\)")
+    h_inv_part = simplify(1 / h_part)
+    g_simp = simplify(g_part)
+    steps.append(f"5. Separar variables: \\( {latex(h_inv_part)} \, d{dep} = {latex(g_simp)} \, d{indep} \\)")
+    integral_y = Integral(h_inv_part, y)
+    integral_x = Integral(g_simp, x)
+    steps.append(format_step("6. Plantear integrales:", f"{latex(integral_y)} = {latex(integral_x)} + {latex(C1)}"))
+    result_y = integral_y.doit()
+    result_x = integral_x.doit()
+    steps.append(format_step("7. Resolver integrales:", f"{latex(simplify(result_y))} = {latex(simplify(result_x))} + {latex(C1)}"))
+    ode_final = Eq(diff(y_func, x), rhs.subs(y, y_func))
+    sol = dsolve(ode_final, y_func)
     sol_latex = latex(sol)
-    steps_list.append(format_latex_step(f"   d. Solución {dep_name} = (∫μQ + C) / μ:", sol_latex))
+    steps.append(format_step("8. Solución general (despejada):", sol_latex))
+    return sol, sol_latex, steps
+
+def solve_exact(implicit_expr, dydx_sym, dep, indep):
+    x, y = symbols(indep), symbols(dep)
+    C1 = Symbol("C")
+    steps = []
+    expr_expanded = implicit_expr.expand()
+    N = simplify(expr_expanded.coeff(dydx_sym))
+    M = simplify(expr_expanded.as_independent(dydx_sym)[0])
+    steps.append(format_step("1. Verificar la exactitud", f"M = {latex(M)}, \\quad N = {latex(N)}"))
+    My = diff(M, y)
+    Nx = diff(N, x)
+    msg_exact = "Si hay exactitud" if simplify(My - Nx) == 0 else "No es exacta"
+    steps.append(format_step(f"Derivadas parciales ({msg_exact})", f"M_{dep} = {latex(My)} \\quad , \\quad N_{indep} = {latex(Nx)}"))
+    if simplify(My - Nx) != 0: raise Exception("Las derivadas parciales no son iguales. No es exacta.")
+    F_partial = integrate(M, x)
+    steps.append(format_step(f"2. Integrar M respecto a {indep}", f"F = \\int ({latex(M)}) d{indep} = {latex(F_partial)} + h({dep})"))
+    Fy = diff(F_partial, y)
+    h_prime = simplify(N - Fy)
+    steps.append(format_step(f"3. Derivar respecto a {dep} y comparar con N", f"\\frac{{\\partial F}}{{\\partial {dep}}} = {latex(Fy)} + h'({dep}) = {latex(N)}"))
+    steps.append(format_step(f"Despejar h'({dep})", f"h'({dep}) = {latex(h_prime)}"))
+    h_val = integrate(h_prime, y)
+    steps.append(format_step(f"Integrar h'({dep})", f"h({dep}) = \\int ({latex(h_prime)}) d{dep} = {latex(h_val)}"))
+    F_final = F_partial + h_val
+    sol = Eq(F_final, C1)
+    steps.append(format_step("4. Solución implícita F(x,y) = C", latex(sol)))
+    return sol, latex(sol), steps
+
+def solve_linear(implicit_expr, dydx_sym, dep, indep):
+    x, y = symbols(indep), symbols(dep)
+    y_func = Function(dep)(x)
+    C1 = Symbol("C")
+    steps = []
+    solved = solve(implicit_expr, dydx_sym)
+    if not solved: raise Exception("No se pudo llevar a forma estándar.")
+    rhs = solved[0]
+    expanded = simplify(rhs).expand()
+    coeff_y = expanded.coeff(y, 1)
+    coeff_const = expanded.coeff(y, 0)
+    P = simplify(-coeff_y)
+    Q = simplify(coeff_const)
+    steps.append(format_step("1. Identificar P y Q", f"P({indep})={latex(P)}, \\quad Q({indep})={latex(Q)}"))
+    int_P = integrate(P, x)
+    mu = simplify(exp(int_P))
+    steps.append(format_step("2. Factor Integrante", f"\\mu = e^{{\\int {latex(P)} d{indep}}} = {latex(mu)}"))
+    steps.append(format_step("3. Resolver usando fórmula:", f"\\mu {dep} = \\int \\mu Q d{indep}"))
+    rhs_int = simplify(mu * Q)
+    res_int = integrate(rhs_int, x)
+    steps.append(format_step(f"Integrar el lado derecho", f"\\int ({latex(mu)})({latex(Q)}) d{indep} = {latex(res_int)} + C"))
+    sol_expr = simplify((res_int + C1) / mu)
+    sol = Eq(y_func, sol_expr)
+    steps.append(format_step(f"Despejar {dep} (Solución Final)", latex(sol)))
+    return sol, latex(sol), steps
+
+# --- BERNOULLI MODIFICADO ---
+
+def solve_bernoulli(implicit_expr, dydx_sym, dep, indep):
+    x, y = symbols(indep), symbols(dep)
+    y_func = Function(dep)(x)
+    C1 = Symbol("C")
+    steps = []
+
+    solved = solve(implicit_expr, dydx_sym)
+    if not solved: raise Exception("Error despejando y'.")
+    rhs = solved[0]
+
+    expanded = simplify(rhs).expand()
+    terms = expanded.as_ordered_terms()
+    P_val, Q_val, n_val = 0, 0, 0
     
-    return sol, sol_latex, steps_list, solution_expr # Devolvemos expr para Bernoulli
+    for t in terms:
+        ty = t.as_independent(y)[1]
+        tx = t.as_independent(y)[0]
+        if ty == y: P_val = simplify(-tx)
+        elif ty == 1: Q_val = tx
+        else:
+            b, e = ty.as_base_exp()
+            if b == y: n_val, Q_val = e, tx
+    
+    # 1. Ecuación General
+    steps.append(format_step("1. Escribir la ecuación diferencial general", 
+                             f"{dep}' + ({latex(P_val)}){dep} = ({latex(Q_val)}){dep}^{{{n_val}}}"))
 
-def solve_linear(P_str: str, Q_str: str, dep_name: str, indep_name: str) -> Tuple[Any, str, List[str]]:
-    """Resuelve EDO lineal: y' + P(x)y = Q(x)"""
-    steps = []
-    try:
-        # 1. Setup
-        x = symbols(indep_name)
-        y = symbols(dep_name) # Símbolo simple para parsear P y Q
-        y_func = Function(dep_name)(x)
-        C1 = Symbol("C1")
-        
-        # P y Q solo deben depender de indep_name (x)
-        local_P_Q = {indep_name: x}
+    # 2. Variable u
+    u_exp = simplify(1 - n_val)
+    steps.append(format_step(f"2. Hacer u = y^(1-n) (n={n_val})", f"u = {dep}^{{{latex(u_exp)}}}"))
 
-        # 2. Parseo
-        P = parse_expr(P_str, local_dict=local_P_Q, transformations=transformations)
-        Q = parse_expr(Q_str, local_dict=local_P_Q, transformations=transformations)
+    # 3. Despejar y
+    y_in_u = Symbol('u') ** simplify(1/u_exp)
+    steps.append(format_step(f"3. Despejar {dep}", f"{dep} = u^{{1/{latex(u_exp)}}} = {latex(y_in_u)}"))
 
-        steps.append(f"1. Ecuación lineal: \\( \\frac{{d{dep_name}}}{{d{indep_name}}} + P({indep_name}){dep_name} = Q({indep_name}) \\)")
-        steps.append(f"   \\( P({indep_name}) = {latex(P)} \\)")
-        steps.append(f"   \\( Q({indep_name}) = {latex(Q)} \\)")
-        steps.append("2. Resolver usando factor integrante \\( \\mu = e^{{\\int P d{indep_name}}} \\):")
+    # 4. Derivar
+    u_sym = Function('u')(x)
+    y_sub = u_sym ** simplify(1/u_exp)
+    dy_sub = diff(y_sub, x)
+    steps.append(format_step(f"4. Derivar '{dep}' y u", 
+                             f"\\frac{{d{dep}}}{{d{indep}}} = {latex(dy_sub)}"))
 
-        # 3. Llamar al solver (DRY)
-        sol, sol_latex, steps, _ = _solve_linear_core(P, Q, x, y_func, C1, indep_name, dep_name, steps)
-        
-        # Renombrar último paso para que sea el final
-        steps[-1] = format_latex_step("3. Solución general:", sol_latex)
+    # 5. Sustituir
+    steps.append(format_step("5. Sustituir en la ecuación original", 
+                             f"({latex(dy_sub)}) + ({latex(P_val)})({latex(y_sub)}) = ({latex(Q_val)})({latex(y_sub)})^{{{n_val}}}"))
 
-        return sol, sol_latex, steps
+    # 6. Ordenar (Lineal)
+    P_new = simplify((1 - n_val) * P_val)
+    Q_new = simplify((1 - n_val) * Q_val)
+    steps.append(format_step("6. Ordenar (Ecuación Lineal)", 
+                             f"u' + ({latex(P_new)})u = {latex(Q_new)}"))
 
-    except Exception as e:
-        print(f"Error en lineal: {e}\n{traceback.format_exc()}")
-        raise Exception(f"Error resolviendo lineal: {str(e)}")
+    # 7. Resolver Lineal
+    steps.append(format_step("7. Utilizar el método de ecuaciones lineales", 
+                             f"Identifica P({indep})={latex(P_new)} y Q({indep})={latex(Q_new)}"))
+    
+    mu_u = simplify(exp(integrate(P_new, x)))
+    res_u = integrate(simplify(mu_u * Q_new), x)
+    
+    # Solución explícita de u (Esta es la que coincide con tu cuaderno)
+    u_sol_val = (res_u + C1) / mu_u
+    
+    steps.append(format_step(f"Resolver para u (Factor integrante \\( \\mu = {latex(mu_u)} \\))", 
+                             f"u = {latex(u_sol_val)}"))
 
-# Ecuaciones de Bernoulli
-def solve_bernoulli(P_str: str, Q_str: str, n_val: str, dep_name: str, indep_name: str) -> Tuple[Any, str, List[str]]:
-    """Resuelve Bernoulli: y' + P(x)y = Q(x)y^n"""
-    steps = []
-    try:
-        # 1. Setup
-        x = symbols(indep_name)
-        y = symbols(dep_name)
-        y_func = Function(dep_name)(x)
-        C1 = Symbol("C1")
-        local_P_Q = {indep_name: x}
+    # Volver a y
+    y_final = u_sol_val ** simplify(1/u_exp)
+    sol = Eq(y_func, y_final)
+    
+    steps.append(format_step(f"Volver a variable original (Solución Final para {dep})", latex(sol)))
 
-        # 2. Parseo
-        P = parse_expr(P_str, local_dict=local_P_Q, transformations=transformations)
-        Q = parse_expr(Q_str, local_dict=local_P_Q, transformations=transformations)
-        n = simplify(parse_expr(n_val))
-
-        steps.append(f"1. Ecuación de Bernoulli: \\( \\frac{{d{dep_name}}}{{d{indep_name}}} + P({indep_name}){dep_name} = Q({indep_name}){dep_name}^{n} \\)")
-        steps.append(f"   \\( P = {latex(P)} \\), \\( Q = {latex(Q)} \\), \\( n = {latex(n)} \\)")
-
-        if n == 0 or n == 1:
-            steps.append("   (n=0 o n=1, la ecuación ya es lineal. Resolviendo como lineal...)")
-            sol, sol_latex, steps_linear = solve_linear(P_str, Q_str, dep_name, indep_name)
-            steps.extend(steps_linear)
-            return sol, sol_latex, steps
-
-        # 3. Sustitución v = y^(1-n)
-        n_float = float(n) # para cálculo
-        v_exp = 1 - n
-        steps.append(f"2. Sustitución: \\( v = {dep_name}^{{{v_exp}}} \\)")
-        
-        P_new = simplify((1 - n) * P)
-        Q_new = simplify((1 - n) * Q)
-        steps.append(f"3. Ecuación lineal en v: \\( \\frac{{dv}}{{d{indep_name}}} + ({latex(P_new)}) v = {latex(Q_new)} \\)")
-        
-        # 4. Resolver EDO lineal en v
-        v = symbols('v')
-        v_func = Function('v')(x)
-        
-        # Llamamos al core, pero con las variables de 'v'
-        _, _, steps, v_sol_expr = _solve_linear_core(P_new, Q_new, x, v_func, C1, indep_name, 'v', steps)
-        
-        # 5. Volver a 'y'
-        # v = y^(1-n)  =>  y = v^(1 / (1-n))
-        y_exp = simplify(1 / (1 - n))
-        dep_solution = simplify(v_sol_expr ** y_exp)
-        sol = Eq(y_func, dep_solution)
-        sol_latex = latex(sol)
-        
-        steps.append(format_latex_step(f"4. Volver a {dep_name} (usando \\( {dep_name} = v^{{{latex(y_exp)}}} \\) ):", sol_latex))
-
-        return sol, sol_latex, steps
-
-    except Exception as e:
-        print(f"Error en bernoulli: {e}\n{traceback.format_exc()}")
-        raise Exception(f"Error resolviendo Bernoulli: {str(e)}")
-
-
-# --- Endpoint principal de API ---
+    return sol, latex(sol), steps
 
 @app.post("/solve", response_model=EDOResponse)
 async def solve_edo(request: Request):
-    """
-    Endpoint principal que recibe el request, delega al solver
-    y devuelve la solución formateada.
-    """
     body = await request.json()
+    if not body.get("equation") or not body.get("tipo"): 
+        raise HTTPException(400, "Faltan datos")
     try:
-        # 1. Normalizar Nombres de Variables
-        dep_name = body.get("dep") or body.get("var_dep") or "y"
-        indep_name = body.get("indep") or body.get("var_indep") or "x"
-
-        # 2. Normalizar Condiciones Iniciales (PVI)
-        initial_x = body.get("initial_x") if body.get("initial_x") is not None else body.get("initial_indep")
-        initial_y = body.get("initial_y") if body.get("initial_y") is not None else body.get("initial_dep")
-
-        equation = body.get("equation")
-        tipo = body.get("tipo")
-
-        if not equation or not tipo:
-            raise HTTPException(status_code=400, detail="Faltan 'equation' o 'tipo'")
-        if dep_name == indep_name:
-            raise HTTPException(status_code=400, detail="Variable dependiente e independiente no pueden ser iguales")
-
-        # 3. Dispatch (Delegar al solver)
+        expr, dydx, dep, indep, interp_latex = preprocess_equation(body.get("equation"))
+        msg = f"Var: {dep}, {indep}"
+        if body.get("tipo") == "separable": sol, ltx, stp = solve_separable(expr, dydx, dep, indep)
+        elif body.get("tipo") == "exacta": sol, ltx, stp = solve_exact(expr, dydx, dep, indep)
+        elif body.get("tipo") == "lineal": sol, ltx, stp = solve_linear(expr, dydx, dep, indep)
+        elif body.get("tipo") == "bernoulli": sol, ltx, stp = solve_bernoulli(expr, dydx, dep, indep)
+        else: raise HTTPException(400, "Tipo inválido")
         
-        # Inicializar variables de respuesta
-        sol: Any = None
-        sol_latex: str = ""
-        steps: List[str] = []
-
-        if tipo == "separable":
-            sol, sol_latex, steps = solve_separable(equation, dep_name, indep_name)
-
-        elif tipo == "exacta":
-            parts = equation.split("|")
-            if len(parts) != 2:
-                raise HTTPException(status_code=400, detail="Formato para exacta: M(x,y) | N(x,y)")
-            sol, sol_latex, steps = solve_exact(parts[0].strip(), parts[1].strip(), dep_name, indep_name)
-
-        elif tipo == "lineal":
-            parts = equation.split("|")
-            if len(parts) != 2:
-                raise HTTPException(status_code=400, detail="Formato para lineal: P(x) | Q(x)")
-            sol, sol_latex, steps = solve_linear(parts[0].strip(), parts[1].strip(), dep_name, indep_name)
-
-        elif tipo == "bernoulli":
-            parts = equation.split("|")
-            if len(parts) != 3:
-                raise HTTPException(status_code=400, detail="Formato para bernoulli: P(x) | Q(x) | n")
-            sol, sol_latex, steps = solve_bernoulli(parts[0].strip(), parts[1].strip(), parts[2].strip(), dep_name, indep_name)
-
-        else:
-            raise HTTPException(status_code=400, detail=f"Tipo de EDO no soportado: {tipo}")
-        # 4. Manejo de PVI (si aplica)
-        particular_sol = ""
-        # (Lógica PVI iría aquí si se implementa)
-
-        # 5. Devolver Respuesta
-        return EDOResponse(
-            success=True,
-            solution=str(sol),
-            solution_latex=f"\\( {sol_latex} \\)",
-            
-            particular_solution=particular_sol,
-            steps=steps
-        )
-
-    except HTTPException as he:
-        raise he
+        return EDOResponse(success=True, solution=str(sol), solution_latex=f"\\( {ltx} \\)", steps=stp, detected_vars=msg)
     except Exception as e:
-        print(f"Error en el endpoint /solve: {e}\n{traceback.format_exc()}")
-        return EDOResponse(
-            success=False,
-            error=str(e),
-            steps=[]
-        )
+        return EDOResponse(success=False, error=str(e), steps=[])
 
-
-# --- Endpoints Estáticos ---
-
-@app.get("/")
-async def root():
-    return {
-        "message": "API Calculadora EDO",
-        "version": "1.1 (Refactorizada)",
-        "tipos_soportados": ["separable", "exacta", "lineal", "bernoulli"]
-    }
-
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
-
-
-# --- Ejecución ---
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

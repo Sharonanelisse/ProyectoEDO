@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="es">
 
 <head>
@@ -8,11 +9,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-
-    <!--  MathJax para renderizar LaTeX -->
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <!-- Configuración opcional para MathJax (inline math con \(...\)) -->
     <script>
         window.MathJax = {
             tex: {
@@ -37,7 +35,7 @@
         }
 
         #app {
-            max-width: 1200px;
+            max-width: 1000px;
             margin: 0 auto;
         }
 
@@ -109,32 +107,24 @@
             color: #333;
         }
 
-        input,
-        textarea,
-        select {
+        textarea {
             width: 100%;
-            padding: 12px;
+            padding: 15px;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
-            font-size: 1em;
-            transition: border-color .3s;
+            font-size: 1.2em;
             font-family: 'Courier New', monospace;
+            min-height: 80px;
+            transition: border-color .3s;
         }
 
-        input:focus,
-        textarea:focus,
-        select:focus {
+        textarea:focus {
             outline: none;
             border-color: #667eea;
         }
 
-        textarea {
-            min-height: 80px;
-            resize: vertical;
-        }
-
         .help-text {
-            font-size: .85em;
+            font-size: .9em;
             color: #666;
             margin-top: 5px;
             font-style: italic;
@@ -150,6 +140,7 @@
             cursor: pointer;
             transition: transform .2s, box-shadow .2s;
             font-weight: 600;
+            width: 100%;
         }
 
         .button:hover {
@@ -171,59 +162,27 @@
             border-left: 4px solid #667eea;
         }
 
-        .result-title {
-            font-size: 1.3em;
-            color: #333;
-            margin-bottom: 15px;
-            font-weight: 600;
-        }
-
-        .solution {
+        .solution,
+        .step {
             background: white;
-            padding: 20px;
+            padding: 15px;
             border-radius: 8px;
-            margin: 15px 0;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, .1);
+            margin: 10px 0;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, .05);
+            font-size: 1.1em;
+            overflow-x: auto;
         }
 
         .solution-label {
             font-weight: 600;
             color: #667eea;
-            margin-bottom: 10px;
-            font-size: 1.05em;
-        }
-
-
-        .solution-content {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            font-size: 1.15em;
-            color: #333;
-            padding: 15px;
-            background: #f5f5f5;
-            border-radius: 6px;
-            overflow-x: auto;
-            line-height: 1.8;
-        }
-
-        .steps {
-            margin-top: 20px;
+            margin-bottom: 5px;
+            font-size: 0.95em;
         }
 
         .step {
-            padding: 12px;
-            margin: 8px 0;
-            background: white;
-            border-radius: 6px;
             border-left: 3px solid #667eea;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             font-size: 1em;
-            line-height: 1.7;
-        }
-
-        .error {
-            background: #fee;
-            border-left-color: #f44;
-            color: #c33;
         }
 
         .info-box {
@@ -232,13 +191,16 @@
             border-radius: 8px;
             margin-bottom: 20px;
             border-left: 4px solid #2196f3;
-            min-height: 100px;
-            /* Para evitar saltos de layout */
         }
 
         .info-box h3 {
             color: #1976d2;
             margin-bottom: 10px;
+        }
+
+        .info-box p {
+            margin-bottom: 8px;
+            line-height: 1.5;
         }
 
         .examples {
@@ -249,11 +211,6 @@
             border-left: 4px solid #ff9800;
         }
 
-        .examples h4 {
-            color: #f57c00;
-            margin-bottom: 10px;
-        }
-
         .example-item {
             font-family: 'Courier New', monospace;
             background: white;
@@ -261,25 +218,78 @@
             margin: 5px 0;
             border-radius: 4px;
             cursor: pointer;
-            transition: background .2s;
+            display: block;
         }
 
         .example-item:hover {
             background: #ffe0b2;
         }
 
-        @media (max-width:768px) {
-            .header h1 {
-                font-size: 1.8em;
-            }
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            border-left-color: #c62828;
+        }
 
-            .tabs {
-                flex-direction: column;
-            }
+        /* Estilos Nuevos (Preview & Toolbar) */
+        .preview-box {
+            background: #fff;
+            border: 1px dashed #667eea;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4em;
+            color: #333;
+        }
 
-            .tab {
-                text-align: left;
-            }
+        .preview-label {
+            font-size: 0.85em;
+            text-transform: uppercase;
+            color: #999;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .tool-btn {
+            background: white;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.95em;
+        }
+
+        .tool-btn:hover {
+            background: #e0e7ff;
+            border-color: #667eea;
+            color: #667eea;
+            transform: translateY(-1px);
+        }
+
+        .tool-btn.special {
+            color: #7c3aed;
+            background: #f5f3ff;
+            border-color: #ddd6fe;
         }
     </style>
 </head>
@@ -302,83 +312,64 @@
             <div class="info-box">
                 <h3>{{ tipoInfo.titulo }}</h3>
                 <p><strong>Forma general:</strong> <span v-html="tipoInfo.forma()"></span></p>
-                <p style="margin-top:10px;"><strong>Método:</strong> <span v-html="tipoInfo.metodo()"></span></p>
+                <p><strong>Método:</strong> <span v-html="tipoInfo.metodo()"></span></p>
             </div>
 
             <div class="input-section">
-                <div style="display:flex; gap:20px; margin-bottom:20px;">
-                    <div style="flex:1;">
-                        <label>Variable dependiente</label>
-                        <select v-model="varDep">
-                            <option v-for="v in variables" :value="v">{{ v }}</option>
-                        </select>
-                        <p class="help-text">La variable que se deriva (ej. y, k, u)</p>
-                    </div>
-
-                    <div style="flex:1;">
-                        <label>Variable independiente</label>
-                        <select v-model="varIndep">
-                            <option v-for="v in variables" :value="v">{{ v }}</option>
-                        </select>
-                        <p class="help-text">La variable que está en el denominador (ej. x, t, v)</p>
-                    </div>
-                </div>
-
                 <div class="form-group">
-                    <label>{{ tipoInfo.label }}</label>
-                    <textarea v-model="ecuacion" :placeholder="placeholderDinamico"></textarea>
-                    <p class="help-text">{{ tipoInfo.ayuda }}</p>
+                    <div class="preview-label">VISTA PREVIA:</div>
+                    <div class="preview-box"><span v-html="livePreviewLatex"></span></div>
+
+                    <label>Escribe la ecuación completa:</label>
+
+                    <div class="toolbar">
+                        <button class="tool-btn" @click="insertarTexto('y\'')">y'</button>
+                        <button class="tool-btn" @click="insertarTexto('dy/dx')">dy/dx</button>
+                        <button class="tool-btn special" @click="insertarTexto('^')">^</button>
+                        <button class="tool-btn special" @click="insertarTexto('sqrt(')">Raíz √</button>
+                        <button class="tool-btn special" @click="insertarTexto('e')">Euler e</button>
+                        <button class="tool-btn" @click="insertarTexto('sin(')">Sen</button>
+                        <button class="tool-btn" @click="insertarTexto('cos(')">Cos</button>
+                        <button class="tool-btn" @click="insertarTexto('tan(')">Tan</button>
+                        <button class="tool-btn" @click="insertarTexto('ln(')">Ln</button>
+                        <button class="tool-btn" @click="insertarTexto('(')">(</button>
+                        <button class="tool-btn" @click="insertarTexto(')')">)</button>
+                    </div>
+
+                    <textarea ref="inputEcuacion" v-model="ecuacion" :placeholder="placeholderDinamico"
+                        @input="renderMath"></textarea>
+                    <p class="help-text">{{ tipoInfo.ayuda }} El sistema detectará las variables automáticamente.</p>
                 </div>
 
                 <div class="examples" v-if="tipoInfo.ejemplos && tipoInfo.ejemplos.length">
                     <h4>Ejemplos:</h4>
-                    <div v-for="(ej, idx) in ejemploRender" :key="idx" class="example-item" @click="useExample(ej)">
+                    <div v-for="(ej, idx) in tipoInfo.ejemplos" :key="idx" class="example-item"
+                        @click="setEcuacion(ej)">
                         {{ ej }}
                     </div>
                 </div>
 
-                <div class="form-group" style="display:none;">
-                    <label><input type="checkbox" v-model="usarCondicionesIniciales"> Usar condiciones iniciales</label>
-                    <div v-if="usarCondicionesIniciales"
-                        style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-top:10px;">
-                        <div>
-                            <label>{{ varIndep }}₀:</label>
-                            <input type="number" v-model.number="x0" step="0.1" />
-                        </div>
-                        <div>
-                            <label>{{ varDep }}₀:</label>
-                            <input type="number" v-model.number="y0" step="0.1" />
-                        </div>
-                    </div>
-                </div>
-
-                <div style="display:flex; gap:10px; align-items:center; margin-top:10px;">
-                    <button class="button" @click="resolver" :disabled="cargando || !ecuacion || varIndep === varDep">
+                <div style="margin-top: 20px;">
+                    <button class="button" @click="resolver" :disabled="cargando || !ecuacion">
                         {{ cargando ? 'Resolviendo...' : 'Resolver Ecuación' }}
                     </button>
-                    <div v-if="varIndep === varDep" style="color:#c33; font-weight:600;">
-                        La variable dependiente e independiente no pueden ser iguales.
-                    </div>
                 </div>
             </div>
 
-            <div v-if="cargando" class="loading">⏳ Procesando ecuación diferencial...</div>
+            <div v-if="cargando" class="loading" style="text-align:center; padding:20px; font-weight:bold; color:#666;">
+                ⏳ Procesando ecuación diferencial...
+            </div>
 
             <div v-if="resultado && !cargando" class="result-section">
                 <div class="result-title">Solución Encontrada</div>
 
                 <div class="solution">
                     <div class="solution-label">Solución General:</div>
-                    <div class="solution-content" v-html="resultado.solution_latex"></div>
-                </div>
-
-                <div v-if="resultado.particular_solution" class="solution">
-                    <div class="solution-label">Solución Particular:</div>
-                    <div class="solution-content" v-html="resultado.particular_solution"></div>
+                    <div v-html="resultado.solution_latex"></div>
                 </div>
 
                 <div v-if="resultado.steps && resultado.steps.length > 0" class="steps">
-                    <div class="solution-label">Pasos de Solución:</div>
+                    <div class="solution-label" style="margin-bottom:15px;">Pasos de Solución:</div>
                     <div v-for="(paso, idx) in resultado.steps" :key="idx" class="step" v-html="paso"></div>
                 </div>
             </div>
@@ -386,7 +377,7 @@
             <div v-if="error && !cargando" class="result-section">
                 <div class="solution error">
                     <div class="solution-label">❌ Error:</div>
-                    <div class="solution-content">{{ error }}</div>
+                    <div>{{ error }}</div>
                 </div>
             </div>
         </div>
@@ -400,21 +391,11 @@
                 return {
                     tipoActual: 'separable',
                     ecuacion: '',
-                    x0: 0,
-                    y0: 1,
-                    usarCondicionesIniciales: false,
                     cargando: false,
                     resultado: null,
                     error: null,
                     apiUrl: 'http://127.0.0.1:8000',
-
-                    variables: [
-                        'x', 't', 'y',
-                        ...Array.from({ length: 26 }, (_, i) => String.fromCharCode(97 + i)),
-                        'θ', 'α', 'β', 'γ'
-                    ],
-                    varIndep: 'x',
-                    varDep: 'y',
+                    varDep: 'y', varIndep: 'x', // Dummy para visualizar ejemplos
 
                     tipos: [
                         { id: 'separable', nombre: 'Separables' },
@@ -426,146 +407,113 @@
                     tiposInfo: {
                         separable: {
                             titulo: 'Ecuaciones Separables',
-                            forma: () => `\\( \\frac{d${this.varDep}}{d${this.varIndep}} = g(${this.varIndep}) \\cdot h(${this.varDep}) \\)`,
-                            metodo: () => `Separar variables e integrar: \\( \\int \\frac{d${this.varDep}}{h(${this.varDep})} = \\int g(${this.varIndep}) d${this.varIndep} \\)`,
-                            label: '',
-                            placeholder: 'Ejemplo: {dep}*{indep}',
-                            ayuda: 'Usa las variables seleccionadas arriba. Operadores: +, -, *, /, **, exp(), log(), sin(), cos()',
-                            ejemplos: [
-                                '{dep}*{indep}',
-                                '{indep}**2/(1+{dep}**2)',
-                                'exp({indep})*{dep}',
-                                '{dep}/{indep}'
-                            ]
+                            forma: () => `\\( \\frac{dy}{dx} = g(x) \\cdot h(y) \\)`,
+                            metodo: () => `Separar variables e integrar: \\( \\int \\frac{dy}{h(y)} = \\int g(x) dx \\)`,
+                            placeholder: "Ej: y' = x*y  ó  dy/dx = y",
+                            ayuda: 'Escribe la ecuación separando los lados con "=". Ejemplo: (y-x)y\' = x+y',
+                            ejemplos: ["y' = x*y", "dy/dx = y/(1+x^2)", "(1+x^2)y' = x*y"]
                         },
                         exacta: {
                             titulo: 'Ecuaciones Exactas',
-                            forma: () => `\\( M(${this.varIndep},${this.varDep}) d${this.varIndep} + N(${this.varIndep},${this.varDep}) d${this.varDep} = 0 \\)`,
-                            metodo: () => `Verificar exactitud (\\( \\frac{\\partial M}{\\partial ${this.varDep}} = \\frac{\\partial N}{\\partial ${this.varIndep}} \\)) y hallar \\( F(${this.varIndep},${this.varDep}) \\)`,
-                            label: 'Ingrese M(indep,dep) y N(indep,dep) separados por |:',
-                            placeholder: 'Formato: M|N',
-                            ayuda: 'Formato: M({indep},{dep})|N({indep},{dep})',
-                            ejemplos: [
-                                '2*{indep}*{dep}|{indep}**2',
-                                '2*{indep} + {dep}|{indep}',
-                                'exp({indep})*cos({dep})|-exp({indep})*sin({dep})'
-                            ]
+                            forma: () => `\\( M(x,y) dx + N(x,y) dy = 0 \\)`,
+                            metodo: () => `Verificar \\( \\frac{\\partial M}{\\partial y} = \\frac{\\partial N}{\\partial x} \\) y hallar \\( F(x,y)=C \\)`,
+                            placeholder: "Ej: (2xy)dx + (x^2)dy = 0",
+                            ayuda: 'Puedes usar notación diferencial (M dx + N dy = 0) o derivada (y\' = ...)',
+                            ejemplos: ["(2*x*y) + (x^2)*y' = 0", "(2xy + y^2)dx + (x^2 + 2xy)dy = 0", "(y-x)y' = x+y"]
                         },
                         lineal: {
                             titulo: 'Ecuaciones Lineales',
-                            forma: () => `\\( \\frac{d${this.varDep}}{d${this.varIndep}} + P(${this.varIndep}) \\cdot ${this.varDep} = Q(${this.varIndep}) \\)`,
-                            metodo: () => `Factor integrante \\( \\mu(${this.varIndep}) = e^{\\int P(${this.varIndep}) d${this.varIndep}} \\)`,
-                            label: 'Ingrese P(indep) y Q(indep) separados por |:',
-                            placeholder: 'Formato: P|Q',
-                            ayuda: 'Formato: P(indep)|Q(indep)',
-                            ejemplos: [
-                                '2*{indep}|{indep}**2',
-                                '1/{indep}|{indep}',
-                                '1|exp({indep})'
-                            ]
+                            forma: () => `\\( y' + P(x)y = Q(x) \\)`,
+                            metodo: () => `Factor integrante \\( \\mu(x) = e^{\\int P(x) dx} \\)`,
+                            placeholder: "Ej: y' + y = e^x",
+                            ayuda: 'El sistema intentará llevar tu ecuación a la forma estándar.',
+                            ejemplos: ["y' + (1/x)*y = x^2", "y' + y = e^x", "dy/dx + 2*y = 4"]
                         },
                         bernoulli: {
                             titulo: 'Ecuaciones de Bernoulli',
-                            forma: () => `\\( \\frac{d${this.varDep}}{d${this.varIndep}} + P(${this.varIndep}) \\cdot ${this.varDep} = Q(${this.varIndep}) \\cdot ${this.varDep}^n \\)`,
-                            metodo: () => `Sustitución \\( v = ${this.varDep}^{1-n} \\)`,
-                            label: 'Ingrese P(indep), Q(indep) y n separados por |:',
-                            placeholder: 'Formato: P|Q|n',
-                            ayuda: 'Formato: P(indep)|Q(indep)|n',
-                            ejemplos: [
-                                '1/{indep}|{indep}|2',
-                                '1|1|3',
-                                '2*{indep}|{indep}**2|2'
-                            ]
+                            forma: () => `\\( y' + P(x)y = Q(x)y^n \\)`,
+                            metodo: () => `Sustitución \\( u = y^{1-n} \\) para reducir a lineal.`,
+                            placeholder: "Ej: y' + y = x*y^2",
+                            ayuda: 'Identifica n para realizar la sustitución adecuada.',
+                            ejemplos: ["y' + y = x*y^2", "x*y' + y = x^2 * y^2", "dy/dx + (1/x)*y = x*sqrt(y)"]
                         }
                     }
                 }
             },
 
             computed: {
-                tipoInfo() {
-                    let info = { ...this.tiposInfo[this.tipoActual] };
+                tipoInfo() { return this.tiposInfo[this.tipoActual]; },
+                placeholderDinamico() { return this.tipoInfo.placeholder; },
 
-                    if (this.tipoActual === 'separable') {
-                        info.label = `Ingrese la ecuación (lado derecho de d${this.varDep}/d${this.varIndep} = ...):`;
-                    }
+                livePreviewLatex() {
+                    if (!this.ecuacion) return '\\( ... \\)';
+                    let s = this.ecuacion;
 
-                    return info;
-                },
+                    // 1. Fracciones simples (2/3 -> \frac{2}{3})
+                    // Regex: numero/letra seguido de / seguido de numero/letra
+                    s = s.replace(/(\w+)\/(\w+)/g, '\\frac{$1}{$2}');
 
-                placeholderDinamico() {
-                    if (this.tipoInfo && this.tipoInfo.placeholder) {
-                        return this.tipoInfo.placeholder.replace(/{dep}/g, this.varDep).replace(/{indep}/g, this.varIndep);
-                    }
-                    return `Ejemplo: ${this.varDep}*${this.varIndep}`;
-                },
+                    // 2. Potencias complejas (^22, ^-1)
+                    // Regex: ^ seguido de opcionalmente signo y luego dígitos/letras
+                    s = s.replace(/\^([+-]?\d+|[a-zA-Z])/g, '^{$1}');
 
-                ejemploRender() {
-                    const arr = (this.tipoInfo && this.tipoInfo.ejemplos) ? this.tipoInfo.ejemplos : [];
-                    return arr.map(t => t.replace(/{dep}/g, this.varDep).replace(/{indep}/g, this.varIndep));
+                    // 3. Euler y otros
+                    s = s.replace(/dy\/dx/g, '\\frac{dy}{dx}');
+                    s = s.replace(/sqrt\((.*?)\)/g, '\\sqrt{$1}');
+                    s = s.replace(/\*/g, ' \\cdot ');
+                    s = s.replace(/e\^([a-zA-Z0-9]+)/g, 'e^{$1}');
+                    return `\\( ${s} \\)`;
                 }
             },
 
             methods: {
-                useExample(exampleText) {
-                    this.ecuacion = exampleText;
+                insertarTexto(texto) {
+                    const textarea = this.$refs.inputEcuacion;
+                    if (!textarea) return;
+                    const start = textarea.selectionStart;
+                    const end = textarea.selectionEnd;
+                    const val = this.ecuacion;
+                    this.ecuacion = val.substring(0, start) + texto + val.substring(end);
+                    this.$nextTick(() => {
+                        textarea.focus();
+                        textarea.setSelectionRange(start + texto.length, start + texto.length);
+                        this.renderMath();
+                    });
                 },
-
+                setEcuacion(val) {
+                    this.ecuacion = val;
+                    this.renderMath();
+                },
                 renderMath() {
                     this.$nextTick(() => {
                         if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
-                            window.MathJax.typesetPromise();
+                            window.MathJax.typesetPromise().catch(e => console.warn(e));
                         }
                     });
                 },
-
                 async resolver() {
                     this.error = null;
                     if (!this.ecuacion || !this.ecuacion.trim()) {
-                        this.error = 'Por favor ingrese una ecuación';
-                        return;
+                        this.error = 'Por favor ingrese una ecuación'; return;
                     }
-                    if (this.varIndep === this.varDep) {
-                        this.error = 'La variable dependiente e independiente no pueden ser iguales';
-                        return;
-                    }
-
                     this.cargando = true;
                     this.resultado = null;
-
                     try {
-                        const sendEquation = this.ecuacion.trim();
-
-                        const payload = {
-                            equation: sendEquation,
-                            tipo: this.tipoActual,
-                            var_indep: this.varIndep,
-                            var_dep: this.varDep,
-                            initial_indep: this.usarCondicionesIniciales ? this.x0 : null,
-                            initial_dep: this.usarCondicionesIniciales ? this.y0 : null
-                        };
-
+                        const payload = { equation: this.ecuacion.trim(), tipo: this.tipoActual };
                         const response = await axios.post(`${this.apiUrl}/solve`, payload);
-
                         if (response.data.success) {
                             this.resultado = response.data;
                         } else {
                             this.error = response.data.error || 'Error desconocido';
                         }
                     } catch (err) {
-                        if (err.response && err.response.data) {
-                            this.error = err.response.data.error || err.response.data.detail || 'Error en el servidor';
-                        } else if (err.request) {
-                            this.error = 'No se pudo conectar con el servidor. Asegúrese de que el backend esté ejecutándose.';
-                        } else {
-                            this.error = err.message;
-                        }
+                        this.error = err.response?.data?.detail || err.message;
                     } finally {
                         this.cargando = false;
                         this.renderMath();
                     }
                 }
             },
-
             watch: {
                 tipoActual() {
                     this.ecuacion = '';
@@ -573,12 +521,12 @@
                     this.error = null;
                     this.renderMath();
                 },
-                varDep() {
-                    this.renderMath();
-                },
-                varIndep() {
+                ecuacion() {
                     this.renderMath();
                 }
+            },
+            mounted() {
+                this.renderMath();
             }
         }).mount('#app');
     </script>
