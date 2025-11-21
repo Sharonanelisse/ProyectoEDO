@@ -332,6 +332,8 @@
                         <button class="tool-btn" @click="insertarTexto('ln(')">Ln</button>
                         <button class="tool-btn" @click="insertarTexto('(')">(</button>
                         <button class="tool-btn" @click="insertarTexto(')')">)</button>
+                        <button class="tool-btn" @click="insertarTexto(' + ')">+</button>
+                        <button class="tool-btn" @click="insertarTexto(' = ')">=</button>
                     </div>
 
                     <textarea ref="inputEcuacion" v-model="ecuacion" :placeholder="placeholderDinamico"
@@ -399,8 +401,7 @@
                     tipos: [
                         { id: 'separable', nombre: 'Separables' },
                         { id: 'exacta', nombre: 'Exactas' },
-                        { id: 'lineal', nombre: 'Lineales' },
-                        { id: 'bernoulli', nombre: 'Bernoulli' }
+                        { id: 'lineal', nombre: 'Lineales' }
                     ],
 
                     tiposInfo: {
@@ -418,7 +419,7 @@
                             metodo: () => `Verificar \\( \\frac{\\partial M}{\\partial y} = \\frac{\\partial N}{\\partial x} \\) y hallar \\( F(x,y)=C \\)`,
                             placeholder: "Ej: (2xy)dx + (x^2)dy = 0",
                             ayuda: 'Puedes usar notación diferencial (M dx + N dy = 0) o derivada (y\' = ...)',
-                            ejemplos: ["(2*x*y) + (x^2)*y' = 0", "(2xy + y^2)dx + (x^2 + 2xy)dy = 0", "(y-x)y' = x+y"]
+                            ejemplos: ["(2xy)dx + (x^2)dy = 0", "(2xy + y^2)dx + (x^2 + 2xy)dy = 0", "(y-x)y' = x+y"]
                         },
                         lineal: {
                             titulo: 'Ecuaciones Lineales',
@@ -427,14 +428,6 @@
                             placeholder: "Ej: y' + y = e^x",
                             ayuda: 'El sistema intentará llevar tu ecuación a la forma estándar.',
                             ejemplos: ["y' + (1/x)*y = x^2", "y' + y = e^x", "dy/dx + 2*y = 4"]
-                        },
-                        bernoulli: {
-                            titulo: 'Ecuaciones de Bernoulli',
-                            forma: () => `\\( y' + P(x)y = Q(x)y^n \\)`,
-                            metodo: () => `Sustitución \\( u = y^{1-n} \\) para reducir a lineal.`,
-                            placeholder: "Ej: y' + y = x*y^2",
-                            ayuda: 'Identifica n para realizar la sustitución adecuada.',
-                            ejemplos: ["y' + y = x*y^2", "x*y' + y = x^2 * y^2", "dy/dx + (1/x)*y = x*sqrt(y)"]
                         }
                     }
                 }

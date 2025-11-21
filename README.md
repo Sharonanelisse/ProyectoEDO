@@ -21,7 +21,6 @@ Calculadora web desarrollada con **Vue.js** (frontend) y **Python/FastAPI** (bac
 1. **Ecuaciones Separables**: `dy/dx = g(x)h(y)`
 2. **Ecuaciones Exactas**: `M(x,y)dx + N(x,y)dy = 0`
 3. **Ecuaciones Lineales**: `dy/dx + P(x)y = Q(x)`
-4. **Ecuaciones de Bernoulli**: `dy/dx + P(x)y = Q(x)y^n`
 
 ---
 
@@ -134,51 +133,24 @@ Separación Heurística: `Parte la operación en dos, una que solo contenga 'x' 
 **Ejemplo**:
 
 - Ecuación: `y' + (1/x)y = x²`
-- `P(x) = 1/x, Q(x) = x²`
+- `P(x) = 1/x, Q(x) = √√`
 - `μ = e^(∫(1/x) dx) = x`
 - `μy = ∫μQdx`
 - `∫(x)(x²)dx = x^4/4 + C`
 - Solución: `y = (C + (c^4/4))/x`
 
-### 4. Ecuaciones de Bernoulli
-
-**Forma general**: `y' + P(x)y = Q(x)y^n`
-
-**Método de Sustitución**:
-
-1. Ecuacion diferencial general
-2. Hacer u = y^(1-n)
-3. Despejar y
-4. Dividir ecuación original entre `y' y u`
-5. Sustituir ecuacion original
-6. Ordernar (Ecuacion Lineal en u)
-7. Resolver Lineal (Identificar P y Q)
-
-**Ejemplo**:
-
-- Ecuación: `dy/dx + (1/x)y = xy²` (n=2)
-- Sustitución: `u = y^(-1)`
-- Despejar `y = u^(1/-1)`
-- Derivar y' y u: `dy/dx = - (d/dx u(x))/(u^2(x)`
-- Sustituir ecuacion original: `-(d/dx u(x))/(u^2(x)) + (1/x)(1/u(x)) = (x)(1/u(x))^2`
-- Ordenar `u' + (-1/x)u = -x`
-- Resolver Lineal `P(u) = 1/x, Q(u) = -x`
-   - Solucion para u: `u = Cx -x²`
-   - Solucion Final: `1/y = Cx - x²`
-
----
 
 ## Guía de Uso
 
 ### Ecuaciones Separables
 
-**Formato de entrada**: `expresión en términos de x e y`
+**Formato de entrada**: `expresión en términos de dx/dy y y'`
 
 Ejemplos:
 
-- `x*y` → dy/dx = xy
-- `x**2/(1+y**2)` → dy/dx = x²/(1+y²)
-- `exp(x)*y` → dy/dx = e^x · y
+- `x*y` → y' = xy
+- `y/(1+x²)` → dy/dx = y/(1+x²)
+- `x*y` → (1+x^2)y' =x*y
 
 ### Ecuaciones Exactas
 
@@ -186,8 +158,9 @@ Ejemplos:
 
 Ejemplos:
 
-- `2*x*y|x**2` → (2xy)dx + (x²)dy = 0
-- `2*x + y|x` → (2x+y)dx + (x)dy = 0
+- `(2xy)dx + (x²)dy` → (2xy)dx + (x²)dy = 0
+- `(2xy + y²)dx + (x²+2xy)dy` → (2xy+y²)dx + (x²+2xy)dy = 0
+- `(y-x)y' = (x+y)` → (y-x)' = (x+y)dy = 0
 
 ### Ecuaciones Lineales
 
@@ -195,18 +168,9 @@ Ejemplos:
 
 Ejemplos:
 
-- `2*x|x**2` → dy/dx + 2xy = x²
-- `1/x|x` → dy/dx + (1/x)y = x
-- `1|exp(x)` → dy/dx + y = e^x
-
-### Ecuaciones de Bernoulli
-
-**Formato de entrada**: `P(x)|Q(x)|n`
-
-Ejemplos:
-
-- `1/x|x|2` → dy/dx + (1/x)y = xy²
-- `1|1|3` → dy/dx + y = y³
+- `y' + (1/x)*y` → y' + (1/x)*y = x²
+- `y' + y` → y' + y = e^x
+- `dy/dx + 2*y` → dy/dx + 2*y = 4
 
 ### Operadores Matemáticos Disponibles
 
@@ -214,12 +178,13 @@ Ejemplos:
 - Resta: `-`
 - Multiplicación: `*`
 - División: `/`
-- Potencia: `**` (ejemplo: `x**2` para x²)
-- Exponencial: `exp(x)` para e^x
+- Potencia: `^` 
 - Logaritmo natural: `log(x)` para ln(x)
 - Seno: `sin(x)`
 - Coseno: `cos(x)`
 - Tangente: `tan(x)`
+
+Hay un menu con varios operadores disponibles
 
 ---
 
@@ -233,62 +198,6 @@ proyecto-edo/
 ├── requirements.txt       # Dependencias Python
 └── README.md             # Documentación
 ```
-
----
-
-## Ejemplos de Uso
-
-### Ejemplo 1: Ecuación Separable
-
-**Input**: `x*y`  
-**Tipo**: Separable  
-**Salida**: `Eq(log(y(x)), C1 + x**2/2)`  
-**Interpretación**: `ln(y) = C₁ + x²/2` → `y = Ce^(x²/2)`
-
-### Ejemplo 2: Ecuación Exacta
-
-**Input**: `2*x*y|x**2`  
-**Tipo**: Exacta  
-**Salida**: `Eq(x**2*y, C1)`  
-**Interpretación**: `x²y = C`
-
-### Ejemplo 3: Ecuación Lineal
-
-**Input**: `1|exp(x)`  
-**Tipo**: Lineal  
-**Salida**: Solución con factor integrante
-
-### Ejemplo 4: Ecuación de Bernoulli
-
-**Input**: `1/x|x|2`  
-**Tipo**: Bernoulli  
-**Salida**: Solución mediante sustitución v = y^(-1)
-
----
-
-## Validación y Pruebas
-
-### Casos de Prueba Implementados
-
-1. **Separables**:
-
-   - ✅ `xy` → Separable simple
-   - ✅ `x**2/(1+y**2)` → Con funciones complejas
-
-2. **Exactas**:
-
-   - ✅ `2*x*y|x**2` → Exacta directa
-   - ✅ Verificación de condición ∂M/∂y = ∂N/∂x
-
-3. **Lineales**:
-
-   - ✅ `2*x|x**2` → Con factor integrante
-   - ✅ `1/x|x` → Con P(x) racional
-
-4. **Bernoulli**:
-   - ✅ `1/x|x|2` → n=2
-   - ✅ Verificación de sustitución correcta
-
 ---
 
 ## Aprendizajes y Conclusiones
@@ -314,9 +223,9 @@ proyecto-edo/
 ### Mejoras Futuras
 
 - Graficación de soluciones
-- Más tipos de EDO (Ricatti, Clairaut)
+- Más tipos de EDO (Ricatti, Bernouilli)
 - Resolución de sistemas de EDO
-- Métodos numéricos (Euler, Runge-Kutta)
+- Métodos numéricos (Euler)
 
 ---
 

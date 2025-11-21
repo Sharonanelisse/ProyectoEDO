@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from typing import List, Any
 from sympy import (
     symbols, Function, Eq, dsolve, diff, integrate, simplify, exp, latex, Symbol,
-    Integral, solve, E, Derivative, Wild, Pow
+    Integral, solve, E, Derivative, Wild
 )
 from sympy.parsing.sympy_parser import (
     parse_expr, standard_transformations, implicit_multiplication_application, convert_xor
@@ -53,6 +53,7 @@ def format_step(title: str, math: str) -> str:
 
 def preprocess_equation(eq_str: str):
     eq_clean = eq_str.replace(" ", "")
+    # Regex Euler y Multiplicación
     eq_clean = re.sub(r"e\^([+-]?\d+)([a-zA-Z])", r"e^(\1*\2)", eq_clean)
     eq_clean = re.sub(r"e\^([a-zA-Z])", r"e^(\1)", eq_clean)
     eq_clean = re.sub(r"(\d)([a-zA-Z\(])", r"\1*\2", eq_clean)
@@ -110,6 +111,8 @@ def preprocess_equation(eq_str: str):
 
 # --- SOLVERS ---
 
+#Ecuaciones Separables
+
 def solve_separable(implicit_expr, dydx_sym, dep, indep):
     x, y = symbols(indep), symbols(dep)
     y_func = Function(dep)(x)
@@ -121,9 +124,9 @@ def solve_separable(implicit_expr, dydx_sym, dep, indep):
     rhs = solved[0]
 
     ode = Eq(diff(y_func, x), rhs)
-    steps.append(f"1. Ecuación original: \\( \\frac{{d{dep}}}{{d{indep}}} = {latex(rhs)} \\)")
-    steps.append(f"2. Ecuación en formato simbólico: \\( {latex(ode)} \\)")
-    steps.append("3. Método: Separación de variables")
+    steps.append(f"Ecuación original: \\( \\frac{{d{dep}}}{{d{indep}}} = {latex(rhs)} \\)")
+    steps.append(f"Ecuación en formato simbólico: \\( {latex(ode)} \\)")
+    steps.append("Método: Separación de variables")
 
     g = Wild('g', exclude=[dep])
     h = Wild('h', exclude=[indep])
@@ -140,28 +143,26 @@ def solve_separable(implicit_expr, dydx_sym, dep, indep):
                 if not fac.free_symbols: g_part *= fac 
                 else: h_part *= fac
     
-    steps.append(f"4. Separación (heurística): RHS ≈ g({indep}) · h({dep})")
+    steps.append(f"Separación (heurística): RHS ≈ g({indep}) · h({dep})")
     steps.append(f"   \\( g({indep}) \\approx {latex(simplify(g_part))} \\)")
     steps.append(f"   \\( h({dep}) \\approx {latex(simplify(h_part))} \\)")
 
     h_inv_part = simplify(1 / h_part)
     g_simp = simplify(g_part)
 
-    steps.append(f"5. Separar variables: \\( {latex(h_inv_part)} \, d{dep} = {latex(g_simp)} \, d{indep} \\)")
+    steps.append(format_step("1. Separar variables:", f"{latex(h_inv_part)}d{dep} = {latex(g_simp)}d{indep}"))
 
     integral_y = Integral(h_inv_part, y)
     integral_x = Integral(g_simp, x)
-    steps.append(format_step("6. Plantear integrales:", f"{latex(integral_y)} = {latex(integral_x)} + {latex(C1)}"))
+    steps.append(format_step("2. Plantear integrales:", f"{latex(integral_y)} = {latex(integral_x)} + {latex(C1)}"))
 
     result_y = integral_y.doit()
     result_x = integral_x.doit()
-    steps.append(format_step("7. Resolver integrales:", f"{latex(simplify(result_y))} = {latex(simplify(result_x))} + {latex(C1)}"))
-
+    steps.append(format_step("3. Resolver integrales:", f"{latex(simplify(result_y))} = {latex(simplify(result_x))} + {latex(C1)}"))
     ode_final = Eq(diff(y_func, x), rhs.subs(y, y_func))
     sol = dsolve(ode_final, y_func)
     sol_latex = latex(sol)
-    steps.append(format_step("8. Solución general (despejada):", sol_latex))
-
+    steps.append(format_step("4. Solución general (despejada):", sol_latex))
     return sol, sol_latex, steps
 
 def solve_exact(implicit_expr, dydx_sym, dep, indep):
@@ -226,72 +227,6 @@ def solve_linear(implicit_expr, dydx_sym, dep, indep):
     steps.append(format_step(f"Despejar {dep} (Solución Final)", latex(sol)))
     return sol, latex(sol), steps
 
-def solve_bernoulli(implicit_expr, dydx_sym, dep, indep):
-    x, y = symbols(indep), symbols(dep)
-    y_func = Function(dep)(x)
-    C1 = Symbol("C")
-    steps = []
-
-    solved = solve(implicit_expr, dydx_sym)
-    if not solved: raise Exception("Error despejando y'.")
-    rhs = solved[0]
-
-    expanded = simplify(rhs).expand()
-    terms = expanded.as_ordered_terms()
-    P_val, Q_val, n_val = 0, 0, 0
-    
-    for t in terms:
-        ty = t.as_independent(y)[1]
-        tx = t.as_independent(y)[0]
-        if ty == y: P_val = simplify(-tx)
-        elif ty == 1: Q_val = tx
-        else:
-            b, e = ty.as_base_exp()
-            if b == y: n_val, Q_val = e, tx
-    
-    # Paso 1
-    steps.append(format_step("Paso 1. Ecuación diferencial general", 
-                             f"{dep}' + ({latex(P_val)}){dep} = ({latex(Q_val)}){dep}^{{{n_val}}}"))
-
-    # Paso 2
-    u_exp = simplify(1 - n_val)
-    steps.append(format_step(f"Paso 2. Hacer u = y^(1-n) (n={n_val})", f"u = {dep}^{{{latex(u_exp)}}}"))
-
-    # Paso 3
-    y_in_u = Symbol('u') ** simplify(1/u_exp)
-    steps.append(format_step(f"Paso 3. Despejar {dep}", f"{dep} = {latex(y_in_u)}"))
-
-    # Paso 4
-    u_sym = Function('u')(x)
-    y_sub = u_sym ** simplify(1/u_exp)
-    dy_sub = diff(y_sub, x)
-    steps.append(format_step(f"Paso 4. Derivar '{dep}' y u", f"\\frac{{d{dep}}}{{d{indep}}} = {latex(dy_sub)}"))
-
-    # Paso 5
-    steps.append(format_step("Paso 5. Sustituir en la ecuación original", 
-                             f"({latex(dy_sub)}) + ({latex(P_val)})({latex(y_sub)}) = ({latex(Q_val)})({latex(y_sub)})^{{{n_val}}}"))
-
-    # Paso 6
-    P_new = simplify((1 - n_val) * P_val)
-    Q_new = simplify((1 - n_val) * Q_val)
-    steps.append(format_step("Paso 6. Ordenar (Ecuación Lineal en u)", f"u' + ({latex(P_new)})u = {latex(Q_new)}"))
-
-    # Paso 7
-    steps.append(format_step("Paso 7. Resolver Lineal (Identificar P y Q)", f"P_u = {latex(P_new)}, \\quad Q_u = {latex(Q_new)}"))
-    
-    mu_u = simplify(exp(integrate(P_new, x)))
-    res_u = integrate(simplify(mu_u * Q_new), x)
-    u_sol_val = simplify((res_u + C1) / mu_u).expand()
-    
-    steps.append(format_step(f"Solución para u (con \\( \\mu={latex(mu_u)} \\))", f"u = {latex(u_sol_val)}"))
-
-    power_y = simplify(u_exp) 
-    sol_implicit = Eq(y**power_y, u_sol_val)
-    
-    steps.append(format_step(f"Volver a variable original (Solución Final)", latex(sol_implicit)))
-
-    return sol_implicit, latex(sol_implicit), steps
-
 @app.post("/solve", response_model=EDOResponse)
 async def solve_edo(request: Request):
     body = await request.json()
@@ -303,8 +238,8 @@ async def solve_edo(request: Request):
         if body.get("tipo") == "separable": sol, ltx, stp = solve_separable(expr, dydx, dep, indep)
         elif body.get("tipo") == "exacta": sol, ltx, stp = solve_exact(expr, dydx, dep, indep)
         elif body.get("tipo") == "lineal": sol, ltx, stp = solve_linear(expr, dydx, dep, indep)
-        elif body.get("tipo") == "bernoulli": sol, ltx, stp = solve_bernoulli(expr, dydx, dep, indep)
         else: raise HTTPException(400, "Tipo inválido")
+        
         return EDOResponse(success=True, solution=str(sol), solution_latex=f"\\( {ltx} \\)", steps=stp, detected_vars=msg)
     except Exception as e:
         return EDOResponse(success=False, error=str(e), steps=[])
