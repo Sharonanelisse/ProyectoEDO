@@ -165,6 +165,7 @@ def solve_separable(implicit_expr, dydx_sym, dep, indep):
     steps.append(format_step("4. Solución general (despejada):", sol_latex))
     return sol, sol_latex, steps
 
+# Ecuaciones Exactas
 def solve_exact(implicit_expr, dydx_sym, dep, indep):
     x, y = symbols(indep), symbols(dep)
     C1 = Symbol("C")
@@ -198,6 +199,7 @@ def solve_exact(implicit_expr, dydx_sym, dep, indep):
     
     return sol, latex(sol), steps
 
+# Ecuaciones Lineales
 def solve_linear(implicit_expr, dydx_sym, dep, indep):
     x, y = symbols(indep), symbols(dep)
     y_func = Function(dep)(x)
