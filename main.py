@@ -178,26 +178,38 @@ def solve_exact(implicit_expr, dydx_sym, dep, indep):
     steps.append(format_step("1. Verificar la exactitud", f"M = {latex(M)}, \\quad N = {latex(N)}"))
     My = diff(M, y)
     Nx = diff(N, x)
-    msg_exact = "Si hay exactitud" if simplify(My - Nx) == 0 else "No es exacta"
-    steps.append(format_step(f"Derivadas parciales ({msg_exact})", f"M_{dep} = {latex(My)} \\quad , \\quad N_{indep} = {latex(Nx)}"))
+    msg_exact = "Es exacta" if simplify(My - Nx) == 0 else "No es exacta"
+    steps.append(format_step(f"Derivadas parciales ({msg_exact})", 
+                             f"M_{dep} = {latex(My)} \\quad , \\quad N_{indep} = {latex(Nx)}"))
+
     if simplify(My - Nx) != 0: raise Exception("Las derivadas parciales no son iguales. No es exacta.")
     
+
     F_partial = integrate(M, x)
-    steps.append(format_step(f"2. Integrar M respecto a {indep}", f"F = \\int ({latex(M)}) d{indep} = {latex(F_partial)} + h({dep})"))
+    steps.append(format_step(f"2. Integrar M respecto a {indep}", 
+                             f"F = \\int ({latex(M)}) d{indep} = {latex(F_partial)} + h({dep})"))
     
-    Fy = diff(F_partial, y)
-    h_prime = simplify(N - Fy)
-    steps.append(format_step(f"3. Derivar respecto a {dep} y comparar con N", f"\\frac{{\\partial F}}{{\\partial {dep}}} = {latex(Fy)} + h'({dep}) = {latex(N)}"))
-    steps.append(format_step(f"Despejar h'({dep})", f"h'({dep}) = {latex(h_prime)}"))
+    Fy_partial = diff(F_partial, y)
+    steps.append(format_step(f"3. Derivar la expresión respecto a {dep}", 
+                             f"\\frac{{\\partial F}}{{\\partial {dep}}} = \\frac{{\\partial}}{{\\partial {dep}}}({latex(F_partial)} + h({dep})) = {latex(Fy_partial)} + h'({dep})"))
+
+    steps.append(format_step(f"Igualar con N({indep},{dep})", 
+                             f"{latex(Fy_partial)} + h'({dep}) = {latex(N)}"))
+
+    h_prime = simplify(N - Fy_partial)
+    steps.append(format_step(f"Despejar h'({dep})", 
+                             f"h'({dep}) = {latex(N)} - ({latex(Fy_partial)}) = {latex(h_prime)}"))
     
     h_val = integrate(h_prime, y)
-    steps.append(format_step(f"Integrar h'({dep})", f"h({dep}) = \\int ({latex(h_prime)}) d{dep} = {latex(h_val)}"))
+    steps.append(format_step(f"Integrar h'({dep})", 
+                             f"h({dep}) = \\int ({latex(h_prime)}) d{dep} = {latex(h_val)}"))
     
     F_final = F_partial + h_val
     sol = Eq(F_final, C1)
     steps.append(format_step("4. Solución implícita F(x,y) = C", latex(sol)))
     
     return sol, latex(sol), steps
+
 
 # Ecuaciones Lineales
 def solve_linear(implicit_expr, dydx_sym, dep, indep):
